@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <title>Налаштування Creatio Notifier</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="container">
+    <!-- <h1>Налаштування Creatio Notifier</h1> -->
+    
+    <!-- Інтервал оновлення (секунди) -->
+    <div class="option-group">
+      <label for="refreshInterval">Інтервал оновлення (секунди):</label>
+      <input type="number" id="refreshInterval" min="10" max="3600" value="10">
+      <p class="description">Мінімальне значення: 10 секунд</p>
+    </div>
+    
+    <!-- Зникнення повідомлень (auto/manual) -->
+    <div class="option-group">
+      <label for="notificationTimeoutType">Зникнення повідомлень:</label>
+      <select id="notificationTimeoutType">
+        <option value="manual">Не закривати до ручного закриття</option>
+        <option value="auto">Закривати автоматично</option>
+      </select>
+    </div>
+    
+    <!-- Час відображення повідомлення (секунди), якщо auto -->
+    <div class="option-group" id="timeoutValueGroup" style="display: none;">
+      <label for="notificationTimeout">Час відображення повідомлення (секунди):</label>
+      <input type="number" id="notificationTimeout" min="1" max="60" value="5">
+    </div>
+    
+    <!-- URL Creatio -->
+    <div class="option-group">
+      <label for="creatioUrl">URL Creatio:</label>
+      <input type="url" id="creatioUrl" placeholder="https://your-instance.creatio.com">
+      <p class="description">Залиште порожнім для автоматичного визначення</p>
+    </div>
+    
+    <!-- Кнопки -->
+    <div class="buttons">
+      <button id="saveBtn">Зберегти</button>
+      <button id="resetBtn">Скинути до стандартних</button>
+    </div>
+    
+    <div id="status" class="status"></div>
+  </div>
+  
+  <script src="options.js"></script>
+</body>
+</html>
