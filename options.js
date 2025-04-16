@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', function() {
-  // Елементи DOM
+  // Елементи DOM t
   const refreshIntervalInput = document.getElementById('refreshInterval');
   const notificationTimeoutTypeSelect = document.getElementById('notificationTimeoutType');
   const timeoutValueGroup = document.getElementById('timeoutValueGroup');
