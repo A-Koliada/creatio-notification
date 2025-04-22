@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Creatio Notifications",
-  "version": "1.0",
+  "version": "1.0.1",
   "description": "Отримуйте сповіщення з Creatio CRM у реальному часі",
   "minimum_chrome_version": "88",
   

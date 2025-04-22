@@ -1,13 +1,12 @@
-
-// Умовне логування для дебагінгу
-const isDebug = true; // Встановити false у продакшені
+// Conditional logging for debugging
+const isDebug = true; // Set to false in production
 function log(...args) {
   if (isDebug) console.log(...args);
 }
 
-log("✅ background.js запущено");
+log("✅ background.js started");
 
-// Функція зміни іконки (on/off)
+// Function to update extension icon (on/off)
 function updateIcon(status) {
   const onIcon = {
     "16": "images/icon-16.png",
@@ -24,12 +23,12 @@ function updateIcon(status) {
   chrome.action.setIcon({ path: status ? onIcon : offIcon });
 }
 
-// Глобальні змінні
+// Global variables
 let creationEndpoint = "";
 const openedNotifications = {};
 let bringToFrontIntervalId = null;
 
-// Функція для періодичного оновлення фокусу вікон
+// Function to periodically bring notification windows to front
 function startBringToFrontInterval(intervalSeconds) {
   if (bringToFrontIntervalId) {
     clearInterval(bringToFrontIntervalId);
@@ -38,11 +37,11 @@ function startBringToFrontInterval(intervalSeconds) {
     for (const [notificationId, winId] of Object.entries(openedNotifications)) {
       chrome.windows.get(winId, {}, (window) => {
         if (chrome.runtime.lastError || !window) {
-          log(`⚠️ Вікно ${winId} не існує, видаляємо з openedNotifications`);
+          log(`⚠️ Window ${winId} does not exist, removing from openedNotifications`);
           delete openedNotifications[notificationId];
         } else {
           chrome.windows.update(winId, { focused: true, drawAttention: true }, () => {
-            log(`🔔 Вікно ${winId} переміщено на передній план`);
+            log(`🔔 Window ${winId} brought to front`);
           });
         }
       });
@@ -50,60 +49,60 @@ function startBringToFrontInterval(intervalSeconds) {
   }, intervalSeconds * 1000);
 }
 
-// Функція для отримання CSRF-токена
+// Function to retrieve CSRF token
 async function getCsrfToken() {
   if (!chrome.cookies) {
-    log("❌ chrome.cookies API недоступне. Перевірте дозволи в manifest.json.");
+    log("❌ chrome.cookies API unavailable. Check permissions in manifest.json.");
     return "";
   }
 
   if (!creationEndpoint) {
-    log("⚠️ creationEndpoint не ініціалізований.");
+    log("⚠️ creationEndpoint not initialized.");
     return "";
   }
 
   return new Promise(resolve => {
     chrome.cookies.get({ url: creationEndpoint, name: "BPMCSRF" }, (cookie) => {
       if (cookie) {
-        log("🔑 Отримано BPMCSRF token:", cookie.value);
+        log("🔑 Retrieved BPMCSRF token:", cookie.value);
         resolve(cookie.value);
       } else {
-        log("⚠️ BPMCSRF token не знайдено для URL:", creationEndpoint);
+        log("⚠️ BPMCSRF token not found for URL:", creationEndpoint);
         resolve("");
       }
     });
   });
 }
 
-// Отримання URL Creatio та інтервалу із налаштувань
+// Load Creatio URL and interval from storage
 chrome.storage.sync.get({
   creatioUrl: "",
   bringToFrontInterval: 20
 }, (items) => {
   if (items.creatioUrl && items.creatioUrl.trim()) {
     creationEndpoint = items.creatioUrl.trim().replace(/\/$/, "");
-    log("🔧 Отримано URL з налаштувань:", creationEndpoint);
+    log("🔧 Loaded URL from settings:", creationEndpoint);
     updateIcon(true);
   } else {
-    log("⚠️ URL Creatio не задано в налаштуваннях.");
+    log("⚠️ Creatio URL not set in settings.");
     updateIcon(false);
   }
   startBringToFrontInterval(items.bringToFrontInterval);
 });
 
-// Функція відправлення повідомлень до popup
+// Function to send messages to popup
 function sendMessageToPopup(message) {
   chrome.runtime.sendMessage(message, (response) => {
     if (chrome.runtime.lastError) {
-      log("⚠️ Popup закритий, повідомлення не надіслано.");
+      log("⚠️ Popup closed, message not sent.");
     }
   });
 }
 
-// Функція відкриття спливаючого вікна
+// Function to open notification window
 function openNotificationWindow(notification) {
   if (openedNotifications[notification.id]) {
-    log(`ℹ️ Вікно для повідомлення ${notification.id} уже відкрите.`);
+    log(`ℹ️ Window for notification ${notification.id} already open.`);
     return;
   }
 
@@ -112,7 +111,7 @@ function openNotificationWindow(notification) {
     title: encodeURIComponent(notification.title),
     message: encodeURIComponent(notification.message),
     date: encodeURIComponent(notification.date),
-    url: encodeURIComponent(notification.url)
+    url: encodeURIComponent(notification.url || "")
   });
 
   chrome.windows.create({
@@ -127,21 +126,21 @@ function openNotificationWindow(notification) {
     if (newWindow && newWindow.id) {
       chrome.windows.update(newWindow.id, { focused: true, drawAttention: true });
       openedNotifications[notification.id] = newWindow.id;
-      log(`🔔 Відкрито спливаюче вікно для повідомлення ${notification.id}, windowId: ${newWindow.id}`);
+      log(`🔔 Opened popup window for notification ${notification.id}, windowId: ${newWindow.id}`);
     }
   });
 }
 
-// Функція отримання сповіщень
+// Function to fetch notifications
 async function fetchNotifications() {
   if (!creationEndpoint) {
-    log("🚫 URL Creatio не задано. Пропускаємо запит сповіщень.");
+    log("🚫 Creatio URL not set. Skipping notification fetch.");
     updateBadge(0);
     return [];
   }
 
   const url = `${creationEndpoint}/0/odata/ArkWebNotification?$filter=ArkIsRead eq false&$orderby=CreatedOn desc&$expand=ArkSysEntitySchema`;
-  log("🌐 Виконання запиту до Creatio:", url);
+  log("🌐 Fetching from Creatio:", url);
 
   try {
     const response = await fetch(url, {
@@ -152,14 +151,14 @@ async function fetchNotifications() {
 
     if (!response.ok) {
       const errorText = await response.text();
-      log(`❌ Сервер повернув статус: ${response.status} ${response.statusText}. Деталі: ${errorText}`);
+      log(`❌ Server returned status: ${response.status} ${response.statusText}. Details: ${errorText}`);
       updateIcon(false);
-      throw new Error(`Сервер повернув статус: ${response.status} ${response.statusText}`);
+      throw new Error(`Server returned status: ${response.status} ${response.statusText}`);
     }
 
     updateIcon(true);
     const data = await response.json();
-    log("📩 Отримані дані:", data);
+    log("📩 Received data:", data);
 
     if (!data.value || data.value.length === 0) {
       updateBadge(0);
@@ -174,7 +173,9 @@ async function fetchNotifications() {
       "Lead": "Leads_FormPage",
       "Opportunity": "Opportunities_FormPage",
       "Case": "Cases_FormPage",
-      "Activity": "Activities_FormPage"
+      "Activity": "Activities_FormPage",
+      "Order": "Orders_FormPage",
+      "Contract": "Contracts_FormPage"
     };
 
     const notifications = data.value.map(item => {
@@ -183,13 +184,13 @@ async function fetchNotifications() {
       const subjectId = item.ArkSubjectId;
 
       if (!moduleCaption || !subjectId) {
-        log(`⚠️ Некоректні дані для повідомлення ${item.Id}: ModuleCaption=${moduleCaption}, SubjectId=${subjectId}, ArkSysEntitySchema=`, item.ArkSysEntitySchema);
+        log(`⚠️ Invalid data for notification ${item.Id}: ModuleCaption=${moduleCaption}, SubjectId=${subjectId}, ArkSysEntitySchema=`, item.ArkSysEntitySchema);
         return {
           id: item.Id,
           title: item.ArkPopupTitle || item.ArkSubjectCaption || "Нове сповіщення",
           message: item.ArkDescription || "Без тексту",
           date: item.CreatedOn || "Невідома дата",
-          url: "" // Повертаємо порожній URL, якщо немає коректних даних
+          url: ""
         };
       }
 
@@ -200,40 +201,53 @@ async function fetchNotifications() {
         date: item.CreatedOn || "Невідома дата",
         url: `${creationEndpoint}/0/Shell/?autoOpenIdLogin=true#Card/${moduleCaption}/edit/${subjectId}`
       };
-    }).filter(notification => notification.url); // Фільтруємо сповіщення без URL
+    });
 
     sendMessageToPopup({ action: "updatePopup", notifications: notifications });
 
     notifications.forEach((notification) => {
-      openNotificationWindow(notification);
+      if (notification.url) {
+        openNotificationWindow(notification);
+      }
     });
 
     return notifications;
   } catch (error) {
-    log("❌ Помилка отримання сповіщень:", error.message);
+    log("❌ Error fetching notifications:", error.message);
     updateBadge(0);
     return [];
   }
 }
 
-// Функція оновлення бейджа
+// Function to update badge
 function updateBadge(count) {
   chrome.action.setBadgeText({ text: count > 0 ? count.toString() : "" });
   chrome.action.setBadgeBackgroundColor({ color: "#FF0000" });
   chrome.action.setBadgeTextColor({ color: "#FFFFFF" });
 }
 
-// Функція позначення всіх повідомлень як прочитаних
+// Function to mark all notifications as read and close their windows
 async function markAllNotificationsAsRead() {
   const notifications = await fetchNotifications();
   for (const notification of notifications) {
     await markNotificationAsRead(notification.id);
   }
+  // Close all open notification windows
+  for (const [notificationId, winId] of Object.entries(openedNotifications)) {
+    chrome.windows.remove(winId, () => {
+      if (chrome.runtime.lastError) {
+        log(`⚠️ Could not close window ${winId}: ${chrome.runtime.lastError.message}`);
+      } else {
+        log(`🔒 Closed window ${winId} for notification ${notificationId}`);
+      }
+      delete openedNotifications[notificationId];
+    });
+  }
 }
 
-// Функція позначення повідомлення як прочитаного
+// Function to mark a single notification as read
 async function markNotificationAsRead(notificationId) {
-  log(`✅ Позначаємо повідомлення ${notificationId} як прочитане`);
+  log(`✅ Marking notification ${notificationId} as read`);
   try {
     const csrfToken = await getCsrfToken();
     const response = await fetch(`${creationEndpoint}/0/odata/ArkWebNotification(${notificationId})`, {
@@ -250,18 +264,18 @@ async function markNotificationAsRead(notificationId) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Помилка сервера: ${response.status} ${response.statusText}. Деталі: ${errorText}`);
+      throw new Error(`Server error: ${response.status} ${response.statusText}. Details: ${errorText}`);
     }
 
-    log(`📩 Повідомлення ${notificationId} позначене як прочитане`);
+    log(`📩 Notification ${notificationId} marked as read`);
     fetchNotifications();
     sendMessageToPopup({ action: "updatePopup" });
   } catch (error) {
-    log(`❌ Помилка при позначенні ${notificationId}:`, error.message);
+    log(`❌ Error marking ${notificationId} as read:`, error.message);
   }
 }
 
-// Обробка повідомлень від popup.js та options.js
+// Handle messages from popup.js and options.js
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "getNotifications") {
     fetchNotifications().then((notifications) => {
@@ -294,10 +308,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const { creatioUrl, bringToFrontInterval } = message.settings;
     if (creatioUrl && creatioUrl.trim()) {
       creationEndpoint = creatioUrl.trim().replace(/\/$/, "");
-      log("🔧 Оновлено URL з налаштувань:", creationEndpoint);
+      log("🔧 Updated URL from settings:", creationEndpoint);
       updateIcon(true);
     } else {
-      log("⚠️ URL Creatio не задано.");
+      log("⚠️ Creatio URL not set.");
       updateIcon(false);
     }
     startBringToFrontInterval(bringToFrontInterval);
@@ -307,13 +321,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return false;
 });
 
-// Запуск перевірки сповіщень
+// Start checking notifications on extension install
 chrome.runtime.onInstalled.addListener(() => {
-  log("🚀 Розширення встановлено. Запуск перевірки сповіщень...");
+  log("🚀 Extension installed. Starting notification check...");
   fetchNotifications();
 });
 
-// Автоматичне оновлення сповіщень кожні 30 секунд
+// Schedule periodic notification checks
 chrome.alarms.create("checkNotifications", { periodInMinutes: 0.5 });
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === "checkNotifications") {
