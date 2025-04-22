@@ -1,3 +1,10 @@
+
+// Conditional logging for debugging
+const isDebug = true; // Set to false in production
+function log(...args) {
+  if (isDebug) console.log(...args);
+}
+
 document.addEventListener("DOMContentLoaded", function () {
   getNotifications();
 
@@ -7,27 +14,27 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
-  // Обробник кнопки "Налаштування"
+  // Handle "Settings" button
   const settingsBtn = document.getElementById("settingsBtn");
   if (settingsBtn) {
     settingsBtn.addEventListener("click", function () {
       chrome.runtime.openOptionsPage();
     });
   } else {
-    console.error("❌ Кнопка 'Налаштування' не знайдена!");
+    log("❌ 'Settings' button not found!");
   }
 
-  // Обробник кнопки "Оновити"
+  // Handle "Refresh" button
   const refreshBtn = document.getElementById("refreshBtn");
   if (refreshBtn) {
     refreshBtn.addEventListener("click", function () {
       getNotifications();
     });
   } else {
-    console.error("❌ Кнопка 'Оновити' не знайдена!");
+    log("❌ 'Refresh' button not found!");
   }
 
-  // Обробник кнопки "Прочитати все"
+  // Handle "Mark All Read" button
   const markAllReadBtn = document.getElementById("markAllReadBtn");
   if (markAllReadBtn) {
     markAllReadBtn.addEventListener("click", function () {
@@ -35,12 +42,12 @@ document.addEventListener("DOMContentLoaded", function () {
         if (response && response.success) {
           getNotifications();
         } else {
-          console.error("❌ Помилка при позначенні всіх як прочитаних:", response && response.error);
+          log("❌ Error marking all as read:", response?.error);
         }
       });
     });
   } else {
-    console.error("❌ Кнопка 'Прочитати все' не знайдена!");
+    log("❌ 'Mark All Read' button not found!");
   }
 });
 
@@ -49,7 +56,7 @@ function getNotifications() {
     if (response && response.success) {
       displayNotifications(response.notifications);
     } else {
-      console.error("❌ Помилка отримання повідомлень:", response && response.error);
+      log("❌ Error fetching notifications:", response?.error);
     }
   });
 }
@@ -58,32 +65,34 @@ function displayNotifications(notifications) {
   const container = document.getElementById("notifications");
   container.innerHTML = "";
 
-  if (!notifications || notifications.length === 0) {
+  if (!Array.isArray(notifications) || notifications.length === 0) {
     container.innerHTML = "<p>Немає нових повідомлень.</p>";
     return;
   }
 
   notifications.forEach((notification) => {
     const item = document.createElement("div");
-    item.classList.add("notification-item");
+    item.classList.add("notification-item", "clickable-container");
     item.innerHTML = `
       <strong>${notification.title}</strong>
       <p>${notification.message}</p>
       <span class="notification-date">${new Date(notification.date).toLocaleString()}</span>
+      ${notification.url ? `<a href="${notification.url}" class="notification-link" target="_blank">Перейти до запису</a>` : ''}
       <button class="mark-read" data-id="${notification.id}">Прочитано</button>
     `;
     container.appendChild(item);
 
-    // Обробник для кнопки "Прочитано"
+    // Handle "Mark as Read" button
     item.querySelector(".mark-read").addEventListener("click", function (e) {
       e.preventDefault();
       e.stopPropagation();
       markAsRead(notification.id);
     });
 
-    // При кліку на блок (якщо не натиснуто кнопку), переходимо за посиланням та позначаємо як прочитане
+    // Handle item click (excluding buttons and links)
     item.addEventListener("click", function (e) {
-      if (!e.target.classList.contains("mark-read")) {
+      if (!e.target.classList.contains("mark-read") && !e.target.classList.contains("notification-link") && notification.url) {
+        log(`🖱️ Notification clicked, opening URL: ${notification.url}`);
         window.open(notification.url, "_blank");
         markAsRead(notification.id);
       }
@@ -96,7 +105,7 @@ function markAsRead(notificationId) {
     if (response && response.success) {
       getNotifications();
     } else {
-      console.error("❌ Помилка позначення як прочитаного:", response && response.error);
+      log("❌ Error marking as read:", response?.error);
     }
   });
 }

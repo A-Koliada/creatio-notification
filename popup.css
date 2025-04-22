@@ -1,65 +1,82 @@
-/* Основні стилі */
+/* Main styles */
 body {
   font-family: Arial, sans-serif;
   width: 320px;
   padding: 0;
-  background-color: white; /* Світлий фон */
+  background-color: white;
   color: black;
   margin: 0;
 }
 
-/* Основний контейнер */
+/* Shared clickable container class */
+.clickable-container {
+  padding: 10px;
+  border: 1px solid #ddd;
+  background-color: #f9f9f9;
+  border-radius: 5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.2s, color 0.2s, background-color 0.2s;
+  cursor: pointer;
+}
+
+.clickable-container:hover {
+  background-color: #d1d1d1;
+  box-shadow: 0 4px 8px #4b4b4b;
+  color: #161616;
+}
+
+/* Main container */
 .container {
   display: flex;
   flex-direction: column;
-  padding-top: 60px; /* Відступ, щоб контент не заходив під шапку */
-  padding-bottom: 10px; /* Додатковий відступ від низу */
+  padding-top: 60px;
+  padding-bottom: 10px;
 }
 
-/* Шапка */
+/* Header */
 .header {
-  background-color: #333; /* Темно-сірий фон */
-  color: white; /* Білий текст */
+  background-color: #333;
+  color: white;
   text-align: center;
   padding: 12px 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  width: 100%; /* Використовує всю ширину вікна */
-  position: fixed; /* Фіксуємо шапку нагорі */
+  width: 100%;
+  position: fixed;
   left: 0;
   top: 0;
   margin: 0;
   box-sizing: border-box;
 }
 
-/* Блок логотипу та заголовка */
+/* Logo and title block */
 .logo-title {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-/* Логотип */
+/* Logo */
 .logo {
   width: 24px;
   height: 24px;
 }
 
-/* Заголовок */
+/* Header title */
 .header h1 {
   font-size: 18px;
   font-weight: bold;
   margin: 0;
 }
 
-/* Іконки управління */
+/* Action buttons */
 .actions {
   display: flex;
   gap: 10px;
 }
 
-/* Іконки */
+/* Action buttons */
 .actions button {
   background: none;
   border: none;
@@ -72,81 +89,68 @@ body {
   opacity: 0.7;
 }
 
-/* Список повідомлень */
+/* Notifications list */
 .notifications-list {
   padding: 10px;
   max-height: 300px;
   overflow-y: auto;
-  margin-top: 10px; /* Додано відступ між шапкою і повідомленнями */
+  margin-top: 10px;
 }
 
-/* Окреме повідомлення */
+/* Individual notification */
 .notification-item {
-  border: 1px solid #ddd;
-  padding: 12px;
   margin-bottom: 8px;
-  background-color: #f9f9f9;
-  border-radius: 5px;
-  cursor: pointer;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Базова тінь у звичайному стані */
-  transition: box-shadow 0.2s, color 0.2s; /* Плавний перехід для тіні та кольору тексту */
   display: flex;
   flex-direction: column;
 }
 
-/* Ефект при наведенні */
-.notification-item:hover {
-  background-color: #d1d1d1; /* Сірий фон при наведенні */
-  box-shadow: 0 4px 8px #4b4b4b; /* Підсвітка тіні світло-блакитним кольором */
-  color: #161616; /* Світло-сірий текст при наведенні */
-}
-
-/* Дата та кнопка "Прочитано" */
-.notification-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 8px;
-}
-
-/* Дата і час створення (зліва) */
+/* Date */
 .notification-date {
   font-size: 12px;
   color: #777;
-  white-space: nowrap; /* Запобігає переносу дати */
+  white-space: nowrap;
 }
 
-/* Кнопка "Прочитано" (справа) */
+/* Link */
+.notification-link {
+  font-size: 14px;
+  color: #007bff;
+  text-decoration: none;
+  margin-bottom: 8px;
+}
+
+.notification-link:hover {
+  text-decoration: underline;
+  color: #0056b3;
+}
+
+/* Mark as Read button */
 .notification-item .mark-read {
-  background-color: #28a745 !important; /* Примусово зелений */
-  color: white !important;
+  background-color: #28a745;
+  color: white;
   border: none;
   padding: 5px 10px;
   font-size: 12px;
   border-radius: 3px;
   cursor: pointer;
   transition: background-color 0.2s;
+  align-self: flex-end;
 }
 
 .notification-item .mark-read:hover {
-  background-color: #218838 !important; /* Примусово темно-зелений при наведенні */
+  background-color: #218838;
 }
 
-/* Заголовок повідомлення */
-.notification-title {
+/* Notification title */
+.notification-item strong {
   font-size: 14px;
   font-weight: bold;
   margin-bottom: 4px;
 }
 
-/* Текст повідомлення */
-.notification-text {
+/* Notification message */
+.notification-item p {
   font-size: 12px;
   color: #555;
-}
-
-/* Відступ між повідомленнями */
-.notification-separator {
-  border-top: 1px solid #ddd;
-  margin: 8px 0;
+  margin: 4px 0;
 }

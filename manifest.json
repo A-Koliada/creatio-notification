@@ -1,57 +1,73 @@
 {
   "manifest_version": 3,
-  "name": "Creatio Notification",
-  "version": "0.7.62",
-  "description": "Розширення для сповіщень з Creatio CRM",
-  "permissions": [
-    "storage",
-    "alarms",
-    "notifications",
-    "tabs",
-    "scripting",
-    "cookies"
-  ],
-  "host_permissions": [
-    "*://*.creatio.com/*"
-  ],
+  "name": "Creatio Notifications",
+  "version": "1.0",
+  "description": "Отримуйте сповіщення з Creatio CRM у реальному часі",
+  "minimum_chrome_version": "88",
+  
+  "icons": {
+    "16": "images/icon-16.png",
+    "32": "images/icon-32.png",
+    "48": "images/icon-48.png",
+    "128": "images/icon-128.png"
+  },
+
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "images/icon-16.png",
+      "32": "images/icon-32.png",
+      "48": "images/icon-48.png",
+      "128": "images/icon-128.png"
+    },
+    "default_title": "Creatio Notifications"
+  },
+
   "background": {
     "service_worker": "background.js",
     "type": "module"
   },
-  "content_scripts": [
-    {
-      "matches": ["*://*.creatio.com/*"],
-      "js": ["content.js"],
-      "run_at": "document_start"
-    }
+
+  "permissions": [
+    "alarms",
+    "notifications",
+    "storage",
+    "activeTab",
+    "cookies"
   ],
-  "action": {
-    "default_popup": "popup.html",
-    "default_icon": {
-      "16": "images/iconoff-16.png",
-      "48": "images/iconoff-48.png",
-      "128": "images/iconoff-128.png"
-    }
-  },
+
+  "host_permissions": [
+    "https://*.creatio.com/*"
+  ],
+
   "options_ui": {
     "page": "options.html",
     "open_in_tab": false
   },
-  "icons": {
-    "16": "images/iconon-16.png",
-    "48": "images/iconon-48.png",
-    "128": "images/iconon-128.png"
-  },
+
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "images/*",
+        "sounds/*"
+      ],
+      "matches": [
+        "https://*.creatio.com/*"
+      ]
+    }
+  ],
+
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"
   },
-  "web_accessible_resources": [
-    {
-      "resources": ["notification.html", "notification.js", "notification.css"],
-      "matches": ["*://*.creatio.com/*"]
+
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+C",
+        "mac": "Command+Shift+C"
+      },
+      "description": "Open Creatio Notifications"
     }
-  ],
-  "author": "Your Name",
-  "homepage_url": "https://your-website.com/",
-  "incognito": "not_allowed"
+  }
 }

@@ -1,38 +1,53 @@
+
+/* Main styles */
 body {
   font-family: Arial, sans-serif;
   width: 350px;
   padding: 15px;
   background-color: white;
   text-align: center;
+  margin: 0;
 }
 
+/* Notification container */
 .notification-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Shared clickable container class */
+.clickable-container {
   padding: 10px;
-  border: 1px solid #ccc;
+  border: 1px solid #ddd;
   background-color: #f9f9f9;
   border-radius: 5px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Базова тінь у звичайному стані */
-  transition: box-shadow 0.2s, color 0.2s; /* Плавний перехід для тіні та кольору тексту */
-  cursor: pointer; /* Вказує, що блок клікабельний */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.2s, color 0.2s, background-color 0.2s;
+  cursor: pointer;
 }
 
-/* Ефект при наведенні */
-.notification-container:hover {
-  background-color: #d1d1d1; /* сірий фон при наведенні */
-  box-shadow: 0 4px 8px #4b4b4b; /* Підсвітка тіні світло-блакитним кольором */
-  color: #161616; /* Світло-сірий текст при наведенні */
+.clickable-container:hover {
+  background-color: #d1d1d1;
+  box-shadow: 0 4px 8px #4b4b4b;
+  color: #161616;
 }
 
+/* Heading */
 h2 {
   font-size: 18px;
   color: black;
+  margin: 0 0 8px;
 }
 
+/* Message text */
 p {
   font-size: 14px;
   color: #555;
+  margin: 0 0 8px;
 }
 
+/* Date */
 span {
   display: block;
   font-size: 12px;
@@ -40,34 +55,53 @@ span {
   margin-bottom: 10px;
 }
 
+/* Link */
+a {
+  font-size: 14px;
+  color: #007bff;
+  text-decoration: none;
+  margin-bottom: 10px;
+}
+
+a:hover {
+  text-decoration: underline;
+  color: #0056b3;
+}
+
+/* Button container */
 .buttons {
   display: flex;
   justify-content: space-between;
+  width: 100%;
   margin-top: 10px;
 }
 
+/* Button styles */
 button {
   padding: 8px 12px;
   border: none;
   cursor: pointer;
   font-size: 14px;
   border-radius: 5px;
+  transition: background-color 0.2s;
 }
 
+/* Mark as Read button */
 #markAsRead {
-  background-color: green;
+  background-color: #28a745;
   color: white;
 }
 
 #markAsRead:hover {
-  background-color: darkgreen;
+  background-color: #218838;
 }
 
+/* Close button */
 #closeWindow {
-  background-color: gray;
+  background-color: #6c757d;
   color: white;
 }
 
 #closeWindow:hover {
-  background-color: darkgray;
+  background-color: #5a6268;
 }
