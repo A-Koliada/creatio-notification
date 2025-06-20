@@ -1,23 +1,57 @@
 <!DOCTYPE html>
-<html lang="uk">
+<html lang="uk" data-current-language="en">
 <head>
   <meta charset="UTF-8">
-  <title>Сповіщення</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title data-i18n="notificationTitle">Creatio Notification</title>
   <link rel="stylesheet" href="notification.css">
 </head>
 <body>
   <div class="notification-container clickable-container">
-    <h2 id="notification-title">Заголовок</h2>
-    <p id="notification-message">Текст повідомлення</p>
-    <span id="notification-date">Дата</span>
-    <a id="notification-link" href="#" target="_blank" style="display: none;">Перейти до запису</a>
+    <div class="notification-header">
+      <h2 id="notification-title" class="notification-title">Заголовок</h2>
+      <span id="notification-date" class="notification-date">Дата</span>
+    </div>
+    
+    <div class="notification-body">
+      <p id="notification-message" class="notification-message">Текст повідомлення</p>
+      
+      <a id="notification-link" href="#" class="notification-link" target="_blank" data-i18n="goToRecord" style="display: none;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+          <polyline points="15 3 21 3 21 9"></polyline>
+          <line x1="10" y1="14" x2="21" y2="3"></line>
+        </svg>
+        <span data-i18n="goToRecord">Перейти до запису</span>
+      </a>
+    </div>
 
-    <div class="buttons">
-      <button id="markAsRead">Прочитано</button>
-      <button id="closeWindow">Закрити</button>
+    <div class="notification-actions">
+      <button id="markAsRead" class="mark-read" data-i18n="markAsRead">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M20 6L9 17l-5-5"></path>
+        </svg>
+        <span data-i18n="markAsRead">Прочитано</span>
+      </button>
+      <button id="closeWindow" class="close-btn" data-i18n="close">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+        <span data-i18n="close">Закрити</span>
+      </button>
     </div>
   </div>
 
+  <!-- Hidden templates for localization -->
+  <div id="i18n-templates" style="display: none;">
+    <span data-i18n="notificationTitle">Notification</span>
+    <span data-i18n="goToRecord">Go to record</span>
+    <span data-i18n="markAsRead">Mark as read</span>
+    <span data-i18n="close">Close</span>
+  </div>
+
+  <script src="locales.js"></script>
   <script src="notification.js"></script>
 </body>
 </html>

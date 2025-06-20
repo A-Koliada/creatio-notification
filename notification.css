@@ -1,11 +1,9 @@
-
-/* Main styles */
+/* Base styles */
 body {
   font-family: Arial, sans-serif;
   width: 350px;
   padding: 15px;
   background-color: white;
-  text-align: center;
   margin: 0;
 }
 
@@ -13,95 +11,155 @@ body {
 .notification-container {
   display: flex;
   flex-direction: column;
-  align-items: center;
-}
-
-/* Shared clickable container class */
-.clickable-container {
-  padding: 10px;
+  padding: 15px;
   border: 1px solid #ddd;
   background-color: #f9f9f9;
   border-radius: 5px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  transition: box-shadow 0.2s, color 0.2s, background-color 0.2s;
-  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.clickable-container:hover {
-  background-color: #d1d1d1;
-  box-shadow: 0 4px 8px #4b4b4b;
-  color: #161616;
+.notification-container:hover {
+  background-color: #e9e9e9;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
-/* Heading */
-h2 {
-  font-size: 18px;
-  color: black;
-  margin: 0 0 8px;
-}
-
-/* Message text */
-p {
-  font-size: 14px;
-  color: #555;
-  margin: 0 0 8px;
-}
-
-/* Date */
-span {
-  display: block;
-  font-size: 12px;
-  color: #888;
+/* Header section */
+.notification-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 10px;
 }
 
-/* Link */
-a {
+.notification-title {
+  font-size: 16px;
+  font-weight: bold;
+  color: #333;
+  margin: 0;
+  flex: 1;
+}
+
+.notification-date {
+  font-size: 12px;
+  color: #777;
+  white-space: nowrap;
+  margin-left: 10px;
+}
+
+/* Body section */
+.notification-body {
+  margin-bottom: 15px;
+}
+
+.notification-message {
+  font-size: 14px;
+  color: #555;
+  margin: 10px 0;
+  line-height: 1.4;
+}
+
+.notification-link {
+  display: inline-flex;
+  align-items: center;
   font-size: 14px;
   color: #007bff;
   text-decoration: none;
-  margin-bottom: 10px;
+  margin-top: 8px;
+  transition: color 0.2s;
 }
 
-a:hover {
-  text-decoration: underline;
+.notification-link:hover {
   color: #0056b3;
+  text-decoration: underline;
 }
 
-/* Button container */
-.buttons {
+.notification-link svg {
+  margin-right: 6px;
+}
+
+/* Actions section */
+.notification-actions {
   display: flex;
   justify-content: space-between;
-  width: 100%;
-  margin-top: 10px;
+  margin-top: 15px;
 }
 
-/* Button styles */
-button {
+.mark-read, .close-btn {
+  display: inline-flex;
+  align-items: center;
   padding: 8px 12px;
   border: none;
   cursor: pointer;
   font-size: 14px;
   border-radius: 5px;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
 }
 
-/* Mark as Read button */
-#markAsRead {
+.mark-read {
   background-color: #28a745;
   color: white;
 }
 
-#markAsRead:hover {
+.mark-read:hover {
   background-color: #218838;
 }
 
-/* Close button */
-#closeWindow {
+.mark-read svg {
+  margin-right: 6px;
+}
+
+.close-btn {
   background-color: #6c757d;
   color: white;
 }
 
-#closeWindow:hover {
+.close-btn:hover {
   background-color: #5a6268;
 }
+
+.close-btn svg {
+  margin-right: 6px;
+}
+
+/* Icons styling */
+svg {
+  width: 14px;
+  height: 14px;
+  vertical-align: middle;
+}
+
+/* Animation for better UX */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.notification-container {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Responsive adjustments */
+@media (max-width: 400px) {
+  body {
+    width: 100%;
+    padding: 10px;
+  }
+  
+  .notification-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .mark-read, .close-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/*
+*********************************
+* A-Koliada 
+* https://a-koliada.github.io/
+*********************************
+*/

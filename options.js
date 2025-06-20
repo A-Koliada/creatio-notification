@@ -1,137 +1,238 @@
-document.addEventListener('DOMContentLoaded', function() {
-  // Елементи DOM
-  const refreshIntervalInput = document.getElementById('refreshInterval');
-  const notificationTimeoutTypeSelect = document.getElementById('notificationTimeoutType');
-  const timeoutValueGroup = document.getElementById('timeoutValueGroup');
-  const notificationTimeoutInput = document.getElementById('notificationTimeout');
-  const bringToFrontIntervalInput = document.getElementById('bringToFrontInterval');
-  const creatioUrlInput = document.getElementById('creatioUrl');
-  const saveBtn = document.getElementById('saveBtn');
-  const resetBtn = document.getElementById('resetBtn');
-  const statusElement = document.getElementById('status');
+// Conditional logging for debugging
+const isDebug = true; // Set to false in production
+function log(...args) {
+  if (isDebug) console.log(...args);
+}
 
-  // Завантаження збережених налаштувань
-  loadOptions();
+document.addEventListener("DOMContentLoaded", function () {
+  // Initialize UI translations
+  initLocalization();
   
-  // Обробники подій
-  notificationTimeoutTypeSelect.addEventListener('change', toggleTimeoutValueVisibility);
-  saveBtn.addEventListener('click', saveOptions);
-  resetBtn.addEventListener('click', resetOptions);
+  // Tab switching functionality
+  const tabButtons = document.querySelectorAll('.tab-button');
+  const tabContents = document.querySelectorAll('.tab-content');
   
-  // Завантаження налаштувань
-  function loadOptions() {
-    chrome.storage.sync.get({
-      refreshInterval: 10,
-      notificationTimeout: 0,
-      bringToFrontInterval: 20,
-      creatioUrl: ''
-    }, function(items) {
-      refreshIntervalInput.value = items.refreshInterval;
+  tabButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      tabButtons.forEach(btn => btn.classList.remove('active'));
+      tabContents.forEach(content => content.classList.remove('active'));
       
-      if (items.notificationTimeout > 0) {
-        notificationTimeoutTypeSelect.value = 'auto';
-        notificationTimeoutInput.value = items.notificationTimeout;
-        timeoutValueGroup.style.display = 'block';
-      } else {
-        notificationTimeoutTypeSelect.value = 'manual';
-        notificationTimeoutInput.value = 5;
-        timeoutValueGroup.style.display = 'none';
-      }
-      
-      bringToFrontIntervalInput.value = items.bringToFrontInterval;
-      creatioUrlInput.value = items.creatioUrl;
+      button.classList.add('active');
+      const tabId = button.getAttribute('data-tab');
+      document.getElementById(tabId).classList.add('active');
     });
+  });
+
+  const form = document.getElementById("settingsForm");
+  const resetBtn = document.getElementById("resetDefaults");
+  const saveMessage = document.getElementById("saveMessage");
+
+  // Check if elements exist
+  if (!form) {
+    log("❌ Error: #settingsForm not found in DOM");
+    return;
   }
-  
-  // Відображення/приховування поля для часу автозакриття
-  function toggleTimeoutValueVisibility() {
-    if (notificationTimeoutTypeSelect.value === 'auto') {
-      timeoutValueGroup.style.display = 'block';
-    } else {
-      timeoutValueGroup.style.display = 'none';
-    }
+  if (!resetBtn) {
+    log("❌ Error: #resetDefaults not found in DOM");
   }
-  
-  // Збереження налаштувань
-  function saveOptions() {
-    const refreshInterval = Math.max(10, parseInt(refreshIntervalInput.value));
-    let notificationTimeout = 0;
-    
-    if (notificationTimeoutTypeSelect.value === 'auto') {
-      notificationTimeout = parseInt(notificationTimeoutInput.value);
-      if (isNaN(notificationTimeout) || notificationTimeout < 1) {
-        notificationTimeout = 5;
-      }
-    }
-    
-    const bringToFrontInterval = Math.max(5, parseInt(bringToFrontIntervalInput.value));
-    const creatioUrl = creatioUrlInput.value.trim();
-    
-    chrome.storage.sync.set({
-      refreshInterval: refreshInterval,
-      notificationTimeout: notificationTimeout,
-      bringToFrontInterval: bringToFrontInterval,
-      creatioUrl: creatioUrl
-    }, function() {
-      showStatus('Налаштування збережено', 'success');
-      refreshIntervalInput.value = refreshInterval;
-      notificationTimeoutInput.value = notificationTimeout || 5;
-      bringToFrontIntervalInput.value = bringToFrontInterval;
-      
-      if (notificationTimeout > 0) {
-        notificationTimeoutTypeSelect.value = 'auto';
-        timeoutValueGroup.style.display = 'block';
-      } else {
-        notificationTimeoutTypeSelect.value = 'manual';
-        timeoutValueGroup.style.display = 'none';
-      }
-      
-      chrome.runtime.sendMessage({
-        action: "settingsUpdated",
-        settings: {
-          refreshInterval: refreshInterval,
-          notificationTimeout: notificationTimeout,
-          bringToFrontInterval: bringToFrontInterval,
-          creatioUrl: creatioUrl
-        }
-      });
-    });
+  if (!saveMessage) {
+    log("❌ Error: #saveMessage not found in DOM");
   }
-  
-  // Скидання налаштувань
-  function resetOptions() {
-    const defaultSettings = {
-      refreshInterval: 10,
-      notificationTimeout: 0,
-      bringToFrontInterval: 20,
-      creatioUrl: ''
+
+  // Load saved settings
+  chrome.storage.sync.get({
+    creatioUrl: "",
+    notificationTimeout: 0,
+    bringToFrontInterval: 20,
+    language: "en" // Default language
+  }, (items) => {
+    log("🔧 Loaded settings:", items);
+    document.getElementById("creatioUrl").value = items.creatioUrl;
+    document.getElementById("notificationTimeout").value = items.notificationTimeout;
+    document.getElementById("bringToFrontInterval").value = Math.max(5, items.bringToFrontInterval);
+    document.getElementById("language").value = items.language;
+    
+    // Update UI language
+    updateLocalizedTexts(items.language);
+  });
+
+  // Handle form submission
+  form.addEventListener("submit", function (event) {
+    event.preventDefault();
+    const settings = {
+      creatioUrl: document.getElementById("creatioUrl").value.trim(),
+      notificationTimeout: parseInt(document.getElementById("notificationTimeout").value) || 0,
+      bringToFrontInterval: Math.max(5, parseInt(document.getElementById("bringToFrontInterval").value) || 20),
+      language: document.getElementById("language").value
     };
     
-    chrome.storage.sync.set(defaultSettings, function() {
-      refreshIntervalInput.value = defaultSettings.refreshInterval;
-      notificationTimeoutTypeSelect.value = 'manual';
-      notificationTimeoutInput.value = 5;
-      timeoutValueGroup.style.display = 'none';
-      bringToFrontIntervalInput.value = defaultSettings.bringToFrontInterval;
-      creatioUrlInput.value = '';
+    log("💾 Saving settings:", settings);
+    chrome.storage.sync.set(settings, () => {
+      // Notify background script about settings update
+      chrome.runtime.sendMessage({ 
+        action: "settingsUpdated", 
+        settings: settings 
+      });
       
-      showStatus('Налаштування скинуто до стандартних', 'success');
-      
+      // Notify all parts of extension about language change
       chrome.runtime.sendMessage({
-        action: "settingsUpdated",
-        settings: defaultSettings
+        action: "languageChanged",
+        language: settings.language
+      });
+      
+      log("✅ Settings saved and messages sent to background.js");
+      showSaveMessage(settings.language);
+    });
+  });
+
+  // Handle reset to defaults
+  if (resetBtn) {
+    resetBtn.addEventListener("click", function () {
+      const defaultSettings = {
+        creatioUrl: "",
+        notificationTimeout: 0,
+        bringToFrontInterval: 20,
+        language: "en"
+      };
+      
+      log("🔄 Resetting to default settings:", defaultSettings);
+      chrome.storage.sync.set(defaultSettings, () => {
+        document.getElementById("creatioUrl").value = defaultSettings.creatioUrl;
+        document.getElementById("notificationTimeout").value = defaultSettings.notificationTimeout;
+        document.getElementById("bringToFrontInterval").value = defaultSettings.bringToFrontInterval;
+        document.getElementById("language").value = defaultSettings.language;
+        
+        // Update UI to default language
+        updateLocalizedTexts(defaultSettings.language);
+        
+        chrome.runtime.sendMessage({ 
+          action: "settingsUpdated", 
+          settings: defaultSettings 
+        });
+        
+        chrome.runtime.sendMessage({
+          action: "languageChanged",
+          language: defaultSettings.language
+        });
+        
+        log("✅ Defaults restored and messages sent to background.js");
+        showResetMessage(defaultSettings.language);
       });
     });
   }
-  
-  // Відображення статусного повідомлення
-  function showStatus(message, type) {
-    statusElement.textContent = message;
-    statusElement.className = 'status ' + type;
-    
-    setTimeout(function() {
-      statusElement.textContent = '';
-      statusElement.className = 'status';
-    }, 3000);
+
+  // Handle language change in real-time
+  const languageSelect = document.getElementById("language");
+  if (languageSelect) {
+    languageSelect.addEventListener("change", function() {
+
+      const newLanguage = this.value;
+      updateLocalizedTexts(this.value);
+
+      // Зберегти мову
+      chrome.storage.sync.set({ language: newLanguage }, () => {
+        // Відправити повідомлення про зміну мови
+        chrome.runtime.sendMessage({
+          action: "languageChanged",
+          language: newLanguage
+        });
+        
+        log("🌐 Language changed to:", newLanguage);
+        
+        // Показати повідомлення про успішне збереження
+        showSaveMessage(newLanguage);
+      });
+    });
   }
 });
+
+
+
+// Initialize localization system
+function initLocalization() {
+  // Apply translations to all elements with data-i18n attribute
+  updateLocalizedTexts();
+  
+  // Listen for language change messages from other parts of extension
+  chrome.runtime.onMessage.addListener((message) => {
+    if (message.action === "updateLanguage") {
+      updateLocalizedTexts(message.language);
+    }
+  });
+}
+
+// Update all localized texts in UI
+function updateLocalizedTexts(lang) {
+  if (!lang) {
+    // Get current language from storage if not provided
+    chrome.storage.sync.get({ language: "en" }, (items) => {
+      applyTranslations(items.language);
+    });
+    return;
+  }
+  applyTranslations(lang);
+}
+
+// Apply translations for specific language
+function applyTranslations(lang) {
+  const currentLang = translations[lang] || translations.en;
+  
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    let translation = getNestedTranslation(currentLang, key);
+    
+    if (translation !== undefined) {
+      if (el.tagName === 'INPUT' && el.type === 'submit') {
+        el.value = translation;
+      } else {
+        el.textContent = translation;
+      }
+    } else {
+      log(`⚠️ Missing translation for key: ${key}`);
+    }
+  });
+}
+
+// Get nested translation (e.g., "languageOptions.en")
+function getNestedTranslation(obj, key) {
+  return key.split('.').reduce((o, k) => (o || {})[k], obj);
+}
+
+// Show save success message with localization
+function showSaveMessage(lang) {
+  const saveMessage = document.getElementById("saveMessage");
+  if (!saveMessage) return;
+  
+  const message = translations[lang]?.saveSuccess || translations.en.saveSuccess;
+  showStatusMessage(saveMessage, message);
+}
+
+// Show reset success message with localization
+function showResetMessage(lang) {
+  const saveMessage = document.getElementById("saveMessage");
+  if (!saveMessage) return;
+  
+  const message = translations[lang]?.resetSuccess || translations.en.resetSuccess;
+  showStatusMessage(saveMessage, message);
+}
+
+// Generic function to show status message
+function showStatusMessage(element, message) {
+  element.textContent = message;
+  element.classList.add("show");
+  
+  setTimeout(() => {
+    element.classList.add("hide");
+    setTimeout(() => {
+      element.classList.remove("show", "hide");
+      window.close();
+    }, 300);
+  }, 1000);
+}
+
+/*
+*********************************
+* A-Koliada 
+* https://a-koliada.github.io/
+*********************************
+*/

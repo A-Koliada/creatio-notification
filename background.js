@@ -6,154 +6,176 @@ function log(...args) {
 
 log("✅ background.js started");
 
-// Function to update extension icon (on/off)
-function updateIcon(status) {
-  const onIcon = {
-    "16": "images/icon-16.png",
-    "32": "images/icon-32.png",
-    "48": "images/icon-48.png",
-    "128": "images/icon-128.png"
-  };
-  const offIcon = {
-    "16": "images/icon-16.png",
-    "32": "images/icon-32.png",
-    "48": "images/icon-48.png",
-    "128": "images/icon-128.png"
-  };
-  chrome.action.setIcon({ path: status ? onIcon : offIcon });
+// Global state
+const state = {
+  creationEndpoint: "",
+  openedNotifications: {},
+  currentLanguage: "en",
+  bringToFrontIntervalId: null
+};
+
+// Initialize extension
+initializeExtension();
+
+// Main initialization function
+function initializeExtension() {
+  loadSettings();
+  setupMessageListeners();
+  setupAlarms();
+  checkContentScript();
 }
 
-// Global variables
-let creationEndpoint = "";
-const openedNotifications = {};
-let bringToFrontIntervalId = null;
-
-// Function to periodically bring notification windows to front
-function startBringToFrontInterval(intervalSeconds) {
-  if (bringToFrontIntervalId) {
-    clearInterval(bringToFrontIntervalId);
-  }
-  bringToFrontIntervalId = setInterval(() => {
-    for (const [notificationId, winId] of Object.entries(openedNotifications)) {
-      chrome.windows.get(winId, {}, (window) => {
-        if (chrome.runtime.lastError || !window) {
-          log(`⚠️ Window ${winId} does not exist, removing from openedNotifications`);
-          delete openedNotifications[notificationId];
-        } else {
-          chrome.windows.update(winId, { focused: true, drawAttention: true }, () => {
-            log(`🔔 Window ${winId} brought to front`);
-          });
-        }
-      });
+// Load settings from storage
+function loadSettings() {
+  chrome.storage.sync.get({
+    creatioUrl: "",
+    bringToFrontInterval: 20,
+    language: "en"
+  }, (items) => {
+    if (items.creatioUrl && items.creatioUrl.trim()) {
+      state.creationEndpoint = items.creatioUrl.trim().replace(/\/$/, "");
+      log("🔧 Loaded URL from settings:", state.creationEndpoint);
     }
-  }, intervalSeconds * 1000);
+    
+    state.currentLanguage = items.language;
+    startBringToFrontInterval(items.bringToFrontInterval);
+    updateIcon(true);
+  });
 }
 
-// Function to retrieve CSRF token
-async function getCsrfToken() {
-  if (!chrome.cookies) {
-    log("❌ chrome.cookies API unavailable. Check permissions in manifest.json.");
-    return "";
-  }
+// Setup message listeners
+function setupMessageListeners() {
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    switch (message.action) {
+      case "getNotifications":
+        handleGetNotifications(sendResponse);
+        return true;
+      case "markAsRead":
+        handleMarkAsRead(message.id, sendResponse);
+        return true;
+      case "markAllRead":
+        handleMarkAllRead(sendResponse);
+        return true;
+      case "settingsUpdated":
+        handleSettingsUpdate(message.settings);
+        break;
+      case "updateAuthStatus":
+        updateIcon(message.authorized);
+        break;
+      case "languageChanged":
+        handleLanguageChange(message.language);
+        break;
+      case "contentScriptReady":
+        log("✅ Content script ready");
+        break;
+    }
+    return false;
+  });
+}
 
-  if (!creationEndpoint) {
-    log("⚠️ creationEndpoint not initialized.");
-    return "";
-  }
+// Setup alarms for periodic checks
+function setupAlarms() {
+  chrome.alarms.create("checkNotifications", { periodInMinutes: 0.5 });
+  chrome.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === "checkNotifications") {
+      fetchNotifications();
+    }
+  });
+}
 
-  return new Promise(resolve => {
-    chrome.cookies.get({ url: creationEndpoint, name: "BPMCSRF" }, (cookie) => {
-      if (cookie) {
-        log("🔑 Retrieved BPMCSRF token:", cookie.value);
-        resolve(cookie.value);
-      } else {
-        log("⚠️ BPMCSRF token not found for URL:", creationEndpoint);
-        resolve("");
-      }
+// Check if content script is injected
+function checkContentScript() {
+  chrome.tabs.query({ url: "*://*.creatio.com/*" }, (tabs) => {
+    tabs.forEach(tab => {
+      chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ['content.js']
+      }).catch(err => log("⚠️ Content script injection error:", err));
     });
   });
 }
 
-// Load Creatio URL and interval from storage
-chrome.storage.sync.get({
-  creatioUrl: "",
-  bringToFrontInterval: 20
-}, (items) => {
-  if (items.creatioUrl && items.creatioUrl.trim()) {
-    creationEndpoint = items.creatioUrl.trim().replace(/\/$/, "");
-    log("🔧 Loaded URL from settings:", creationEndpoint);
+// Handle get notifications request
+async function handleGetNotifications(sendResponse) {
+  try {
+    const notifications = await fetchNotifications();
+    sendResponse({ success: true, notifications });
+  } catch (error) {
+    log("❌ Error handling get notifications:", error);
+    sendResponse({ success: false, error: error.message });
+  }
+}
+
+// Handle mark as read request
+async function handleMarkAsRead(notificationId, sendResponse) {
+  try {
+    await markNotificationAsRead(notificationId);
+    sendResponse({ success: true });
+  } catch (error) {
+    log(`❌ Error marking ${notificationId} as read:`, error);
+    sendResponse({ success: false, error: error.message });
+  }
+}
+
+// Handle mark all read request
+async function handleMarkAllRead(sendResponse) {
+  try {
+    await markAllNotificationsAsRead();
+    sendResponse({ success: true });
+  } catch (error) {
+    log("❌ Error marking all as read:", error);
+    sendResponse({ success: false, error: error.message });
+  }
+}
+
+// Handle settings update
+function handleSettingsUpdate(settings) {
+  if (settings.creatioUrl && settings.creatioUrl.trim()) {
+    state.creationEndpoint = settings.creatioUrl.trim().replace(/\/$/, "");
+    log("🔧 Updated URL from settings:", state.creationEndpoint);
     updateIcon(true);
-  } else {
-    log("⚠️ Creatio URL not set in settings.");
-    updateIcon(false);
   }
-  startBringToFrontInterval(items.bringToFrontInterval);
-});
-
-// Function to send messages to popup
-function sendMessageToPopup(message) {
-  chrome.runtime.sendMessage(message, (response) => {
-    if (chrome.runtime.lastError) {
-      log("⚠️ Popup closed, message not sent.");
-    }
-  });
+  
+  if (settings.language && settings.language !== state.currentLanguage) {
+    state.currentLanguage = settings.language;
+    log("🌐 Language changed to:", state.currentLanguage);
+  }
+  
+  startBringToFrontInterval(settings.bringToFrontInterval);
 }
 
-// Function to open notification window
-function openNotificationWindow(notification) {
-  if (openedNotifications[notification.id]) {
-    log(`ℹ️ Window for notification ${notification.id} already open.`);
-    return;
-  }
-
-  const params = new URLSearchParams({
-    id: notification.id,
-    title: encodeURIComponent(notification.title),
-    message: encodeURIComponent(notification.message),
-    date: encodeURIComponent(notification.date),
-    url: encodeURIComponent(notification.url || "")
-  });
-
-  chrome.windows.create({
-    url: `notification.html?${params.toString()}`,
-    type: "popup",
-    width: 400,
-    height: 250,
-    top: 100,
-    left: 100,
-    focused: true
-  }, (newWindow) => {
-    if (newWindow && newWindow.id) {
-      chrome.windows.update(newWindow.id, { focused: true, drawAttention: true });
-      openedNotifications[notification.id] = newWindow.id;
-      log(`🔔 Opened popup window for notification ${notification.id}, windowId: ${newWindow.id}`);
-    }
-  });
+// Handle language change
+function handleLanguageChange(newLanguage) {
+  state.currentLanguage = newLanguage;
+  chrome.storage.sync.set({ language: newLanguage });
+  log("🌐 Updated language to:", newLanguage);
 }
 
-// Function to fetch notifications
+// Fetch notifications from Creatio
 async function fetchNotifications() {
-  if (!creationEndpoint) {
+  if (!state.creationEndpoint) {
     log("🚫 Creatio URL not set. Skipping notification fetch.");
     updateBadge(0);
+    updateIcon(false);
     return [];
   }
 
-  const url = `${creationEndpoint}/0/odata/ArkWebNotification?$filter=ArkIsRead eq false&$orderby=CreatedOn desc&$expand=ArkSysEntitySchema`;
+  const url = `${state.creationEndpoint}/0/odata/ArkWebNotification?$filter=ArkIsRead eq false&$orderby=CreatedOn desc&$expand=ArkSysEntitySchema`;
   log("🌐 Fetching from Creatio:", url);
 
   try {
     const response = await fetch(url, {
       method: "GET",
-      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      headers: { 
+        "Content-Type": "application/json", 
+        "Accept": "application/json" 
+      },
       credentials: "include"
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      log(`❌ Server returned status: ${response.status} ${response.statusText}. Details: ${errorText}`);
-      updateIcon(false);
-      throw new Error(`Server returned status: ${response.status} ${response.statusText}`);
+      throw new Error(`Server error: ${response.status} ${response.statusText}. ${errorText}`);
     }
 
     updateIcon(true);
@@ -166,171 +188,220 @@ async function fetchNotifications() {
     }
 
     updateBadge(data.value.length);
-
-    const moduleMapping = {
-      "Contact": "Contacts_FormPage",
-      "Account": "Accounts_FormPage",
-      "Lead": "Leads_FormPage",
-      "Opportunity": "Opportunities_FormPage",
-      "Case": "Cases_FormPage",
-      "Activity": "Activities_FormPage",
-      "Order": "Orders_FormPage",
-      "Contract": "Contracts_FormPage"
-    };
-
-    const notifications = data.value.map(item => {
-      const schemaName = item.ArkSysEntitySchema?.Name;
-      const moduleCaption = moduleMapping[schemaName] || schemaName;
-      const subjectId = item.ArkSubjectId;
-
-      if (!moduleCaption || !subjectId) {
-        log(`⚠️ Invalid data for notification ${item.Id}: ModuleCaption=${moduleCaption}, SubjectId=${subjectId}, ArkSysEntitySchema=`, item.ArkSysEntitySchema);
-        return {
-          id: item.Id,
-          title: item.ArkPopupTitle || item.ArkSubjectCaption || "Нове сповіщення",
-          message: item.ArkDescription || "Без тексту",
-          date: item.CreatedOn || "Невідома дата",
-          url: ""
-        };
-      }
-
-      return {
-        id: item.Id,
-        title: item.ArkPopupTitle || item.ArkSubjectCaption || "Нове сповіщення",
-        message: item.ArkDescription || "Без тексту",
-        date: item.CreatedOn || "Невідома дата",
-        url: `${creationEndpoint}/0/Shell/?autoOpenIdLogin=true#Card/${moduleCaption}/edit/${subjectId}`
-      };
-    });
-
-    sendMessageToPopup({ action: "updatePopup", notifications: notifications });
-
-    notifications.forEach((notification) => {
-      if (notification.url) {
-        openNotificationWindow(notification);
-      }
-    });
-
+    const notifications = processNotificationData(data.value);
+    
+    sendNotificationsToPopup(notifications);
+    openNotificationWindows(notifications);
+    
     return notifications;
   } catch (error) {
-    log("❌ Error fetching notifications:", error.message);
+    log("❌ Error fetching notifications:", error);
     updateBadge(0);
-    return [];
+    updateIcon(false);
+    throw error;
   }
 }
 
-// Function to update badge
+// Process raw notification data
+function processNotificationData(notifications) {
+  const moduleMapping = {
+    "Contact": "Contacts_FormPage",
+    "Account": "Accounts_FormPage",
+    "Lead": "Leads_FormPage",
+    "Opportunity": "Opportunities_FormPage",
+    "Case": "Cases_FormPage",
+    "Activity": "Activities_FormPage",
+    "Order": "Orders_FormPage",
+    "Contract": "Contracts_FormPage"
+  };
+
+  return notifications.map(item => {
+    const schemaName = item.ArkSysEntitySchema?.Name;
+    const moduleCaption = moduleMapping[schemaName] || schemaName;
+    const subjectId = item.ArkSubjectId;
+
+    return {
+      id: item.Id,
+      title: item.ArkPopupTitle || item.ArkSubjectCaption || "Notification",
+      message: item.ArkDescription || "No content",
+      date: item.CreatedOn || new Date().toISOString(),
+      url: moduleCaption && subjectId 
+        ? `${state.creationEndpoint}/0/Shell/?autoOpenIdLogin=true#Card/${moduleCaption}/edit/${subjectId}`
+        : ""
+    };
+  });
+}
+
+// Send notifications to popup
+function sendNotificationsToPopup(notifications) {
+  chrome.runtime.sendMessage({ 
+    action: "updatePopup", 
+    notifications: notifications 
+  }).catch(err => log("⚠️ Error sending to popup:", err));
+}
+
+// Open notification windows
+function openNotificationWindows(notifications) {
+  notifications.forEach(notification => {
+    if (notification.url && !state.openedNotifications[notification.id]) {
+      openNotificationWindow(notification);
+    }
+  });
+}
+
+// Open single notification window
+function openNotificationWindow(notification) {
+  const params = new URLSearchParams({
+    id: notification.id,
+    title: encodeURIComponent(notification.title),
+    message: encodeURIComponent(notification.message),
+    date: encodeURIComponent(notification.date),
+    url: encodeURIComponent(notification.url || ""),
+    lang: state.currentLanguage
+  });
+
+  chrome.windows.create({
+    url: `notification.html?${params.toString()}`,
+    type: "popup",
+    width: 400,
+    height: 250,
+    focused: true
+  }, (newWindow) => {
+    if (newWindow?.id) {
+      state.openedNotifications[notification.id] = newWindow.id;
+      log(`🔔 Opened popup for notification ${notification.id}`);
+    }
+  });
+}
+
+// Mark notification as read
+async function markNotificationAsRead(notificationId) {
+  log(`✅ Marking notification ${notificationId} as read`);
+  const csrfToken = await getCsrfToken();
+  
+  const response = await fetch(`${state.creationEndpoint}/0/odata/ArkWebNotification(${notificationId})`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+      "X-Requested-With": "XMLHttpRequest",
+      "BPMCSRF": csrfToken || ""
+    },
+    credentials: "include",
+    body: JSON.stringify({ ArkIsRead: true })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Server error: ${response.status} ${response.statusText}. ${errorText}`);
+  }
+
+  log(`📩 Notification ${notificationId} marked as read`);
+  closeNotificationWindow(notificationId);
+  fetchNotifications();
+}
+
+// Mark all notifications as read
+async function markAllNotificationsAsRead() {
+  const notifications = await fetchNotifications();
+  await Promise.all(notifications.map(n => markNotificationAsRead(n.id)));
+  closeAllNotificationWindows();
+}
+
+// Close single notification window
+function closeNotificationWindow(notificationId) {
+  const winId = state.openedNotifications[notificationId];
+  if (winId) {
+    chrome.windows.remove(winId, () => {
+      delete state.openedNotifications[notificationId];
+      log(`🔒 Closed window for notification ${notificationId}`);
+    });
+  }
+}
+
+// Close all notification windows
+function closeAllNotificationWindows() {
+  Object.entries(state.openedNotifications).forEach(([notificationId, winId]) => {
+    chrome.windows.remove(winId, () => {
+      delete state.openedNotifications[notificationId];
+    });
+  });
+}
+
+// Get CSRF token
+async function getCsrfToken() {
+  if (!chrome.cookies) {
+    log("❌ chrome.cookies API unavailable");
+    return "";
+  }
+
+  if (!state.creationEndpoint) {
+    log("⚠️ creationEndpoint not initialized");
+    return "";
+  }
+
+  return new Promise(resolve => {
+    chrome.cookies.get({ 
+      url: state.creationEndpoint, 
+      name: "BPMCSRF" 
+    }, (cookie) => {
+      if (cookie) {
+        log("🔑 Retrieved BPMCSRF token");
+        resolve(cookie.value);
+      } else {
+        log("⚠️ BPMCSRF token not found");
+        resolve("");
+      }
+    });
+  });
+}
+
+// Update extension icon
+function updateIcon(status) {
+  const iconPath = status ? "images/iconon" : "images/iconoff";
+  chrome.action.setIcon({
+    path: {
+      "16": `${iconPath}-16.png`,
+      "32": `${iconPath}-32.png`,
+      "48": `${iconPath}-48.png`,
+      "128": `${iconPath}-128.png`
+    }
+  });
+}
+
+// Update badge count
 function updateBadge(count) {
   chrome.action.setBadgeText({ text: count > 0 ? count.toString() : "" });
   chrome.action.setBadgeBackgroundColor({ color: "#FF0000" });
   chrome.action.setBadgeTextColor({ color: "#FFFFFF" });
 }
 
-// Function to mark all notifications as read and close their windows
-async function markAllNotificationsAsRead() {
-  const notifications = await fetchNotifications();
-  for (const notification of notifications) {
-    await markNotificationAsRead(notification.id);
+// Start bring to front interval
+function startBringToFrontInterval(intervalSeconds) {
+  if (state.bringToFrontIntervalId) {
+    clearInterval(state.bringToFrontIntervalId);
   }
-  // Close all open notification windows
-  for (const [notificationId, winId] of Object.entries(openedNotifications)) {
-    chrome.windows.remove(winId, () => {
-      if (chrome.runtime.lastError) {
-        log(`⚠️ Could not close window ${winId}: ${chrome.runtime.lastError.message}`);
-      } else {
-        log(`🔒 Closed window ${winId} for notification ${notificationId}`);
-      }
-      delete openedNotifications[notificationId];
+  
+  state.bringToFrontIntervalId = setInterval(() => {
+    Object.entries(state.openedNotifications).forEach(([notificationId, winId]) => {
+      chrome.windows.update(winId, { focused: true }, () => {
+        if (chrome.runtime.lastError) {
+          delete state.openedNotifications[notificationId];
+        }
+      });
     });
-  }
+  }, intervalSeconds * 1000);
 }
 
-// Function to mark a single notification as read
-async function markNotificationAsRead(notificationId) {
-  log(`✅ Marking notification ${notificationId} as read`);
-  try {
-    const csrfToken = await getCsrfToken();
-    const response = await fetch(`${creationEndpoint}/0/odata/ArkWebNotification(${notificationId})`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-        "X-Requested-With": "XMLHttpRequest",
-        "BPMCSRF": csrfToken || ""
-      },
-      credentials: "include",
-      body: JSON.stringify({ ArkIsRead: true })
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Server error: ${response.status} ${response.statusText}. Details: ${errorText}`);
-    }
-
-    log(`📩 Notification ${notificationId} marked as read`);
-    fetchNotifications();
-    sendMessageToPopup({ action: "updatePopup" });
-  } catch (error) {
-    log(`❌ Error marking ${notificationId} as read:`, error.message);
-  }
-}
-
-// Handle messages from popup.js and options.js
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.action === "getNotifications") {
-    fetchNotifications().then((notifications) => {
-      sendResponse({ success: true, notifications: notifications });
-    }).catch((error) => {
-      sendResponse({ success: false, error: error.message });
-    });
-    return true;
-  }
-
-  if (message.action === "markAsRead") {
-    markNotificationAsRead(message.id).then(() => {
-      sendResponse({ success: true });
-    }).catch((error) => {
-      sendResponse({ success: false, error: error.message });
-    });
-    return true;
-  }
-
-  if (message.action === "markAllRead") {
-    markAllNotificationsAsRead().then(() => {
-      sendResponse({ success: true });
-    }).catch((error) => {
-      sendResponse({ success: false, error: error.message });
-    });
-    return true;
-  }
-
-  if (message.action === "settingsUpdated") {
-    const { creatioUrl, bringToFrontInterval } = message.settings;
-    if (creatioUrl && creatioUrl.trim()) {
-      creationEndpoint = creatioUrl.trim().replace(/\/$/, "");
-      log("🔧 Updated URL from settings:", creationEndpoint);
-      updateIcon(true);
-    } else {
-      log("⚠️ Creatio URL not set.");
-      updateIcon(false);
-    }
-    startBringToFrontInterval(bringToFrontInterval);
-    return false;
-  }
-
-  return false;
-});
-
-// Start checking notifications on extension install
+// Install handler
 chrome.runtime.onInstalled.addListener(() => {
-  log("🚀 Extension installed. Starting notification check...");
+  log("🚀 Extension installed");
   fetchNotifications();
 });
 
-// Schedule periodic notification checks
-chrome.alarms.create("checkNotifications", { periodInMinutes: 0.5 });
-chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === "checkNotifications") {
-    fetchNotifications();
-  }
-});
+/*
+*********************************
+* A-Koliada 
+* https://a-koliada.github.io/
+*********************************
+*/

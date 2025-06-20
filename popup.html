@@ -1,22 +1,21 @@
-
 <!DOCTYPE html>
 <html lang="uk">
 <head>
   <meta charset="UTF-8">
-  <title>Creatio Notification</title>
+  <title data-i18n="extensionName">Creatio Notification</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
   <div class="container">
     <div class="header">
       <div class="logo-title">
-        <img src="images/icon-48.png" alt="Creatio Logo" class="logo">
-        <h1>Creatio Notification</h1>
+        <img src="images/icon-48.png" alt="Creatio Logo" class="logo" data-i18n-title="extensionName">
+        <h1 data-i18n="extensionName">Creatio Notification</h1>
       </div>
       <div class="actions">
-        <button id="markAllReadBtn" title="Прочитати все">✅</button>
-        <button id="refreshBtn" title="Оновити">🔄</button>
-        <button id="settingsBtn" title="Налаштування">⚙️</button>
+        <button id="markAllReadBtn" data-i18n-title="markAllRead" data-i18n="markAllReadIcon">✅</button>
+        <button id="refreshBtn" data-i18n-title="refresh" data-i18n="refreshIcon">🔄</button>
+        <button id="settingsBtn" data-i18n-title="settings" data-i18n="settingsIcon">⚙️</button>
       </div>
     </div>
 
@@ -25,6 +24,8 @@
     </div>
   </div>
 
+  <script src="locales.js"></script>
+  <script src="i18n.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

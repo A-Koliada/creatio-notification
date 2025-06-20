@@ -1,84 +1,150 @@
 // Conditional logging for debugging
-const isDebug = true; // Set to false in production
+const isDebug = true;
 function log(...args) {
   if (isDebug) console.log(...args);
 }
 
-document.addEventListener("DOMContentLoaded", function () {
-  const params = new URLSearchParams(window.location.search);
-  const id = params.get("id");
-  const title = decodeURIComponent(params.get("title"));
-  const message = decodeURIComponent(params.get("message"));
-  const date = decodeURIComponent(params.get("date"));
-  const url = decodeURIComponent(params.get("url") || "");
+// Current language state
+let currentLanguage = 'en';
 
-  document.getElementById("notification-title").textContent = title;
-  document.getElementById("notification-message").textContent = message;
-  document.getElementById("notification-date").textContent = date;
+// Localization function
+function getTranslation(key, lang = currentLanguage) {
+  const langData = translations[lang] || translations.en;
+  const keys = key.split('.');
+  let value = langData;
+  
+  for (const k of keys) {
+    value = value?.[k];
+    if (value === undefined) return key;
+  }
+  return value;
+}
+
+// Update UI translations
+function updateLocalizedTexts() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    el.textContent = getTranslation(key);
+  });
+  
+  document.querySelectorAll('[data-i18n-title]').forEach(el => {
+    const key = el.getAttribute('data-i18n-title');
+    el.setAttribute('title', getTranslation(key));
+  });
+}
+
+// Initialize notification
+document.addEventListener("DOMContentLoaded", function() {
+  // Parse URL parameters
+  const params = new URLSearchParams(window.location.search);
+  const notification = {
+    id: params.get("id"),
+    title: decodeURIComponent(params.get("title") || getTranslation('notification.defaultTitle')),
+    message: decodeURIComponent(params.get("message") || getTranslation('notification.defaultMessage')),
+    date: decodeURIComponent(params.get("date") || new Date().toISOString()),
+    url: decodeURIComponent(params.get("url") || ""),
+    lang: params.get("lang") || 'en'
+  };
+
+  // Set current language
+  currentLanguage = notification.lang;
+  document.documentElement.setAttribute('data-current-language', currentLanguage);
+
+  // Update UI with notification data
+  document.getElementById("notification-title").textContent = notification.title;
+  document.getElementById("notification-message").textContent = notification.message;
+  document.getElementById("notification-date").textContent = new Date(notification.date).toLocaleString();
 
   // Handle link display
   const linkElement = document.getElementById("notification-link");
-  if (url) {
-    linkElement.href = url;
-    linkElement.textContent = "Перейти до запису";
-    linkElement.style.display = "block";
-    log(`✅ Link for notification ${id}: ${url}`);
+  if (notification.url) {
+    linkElement.href = notification.url;
+    linkElement.style.display = "flex";
   } else {
     linkElement.style.display = "none";
-    log(`⚠️ No valid URL for notification ${id}`);
   }
 
+  // Apply translations
+  updateLocalizedTexts();
+
   // Load settings for auto-close
-  chrome.storage.sync.get({ notificationTimeout: 0 }, (settings) => {
+  chrome.storage.sync.get({ 
+    notificationTimeout: 0,
+    language: 'en'
+  }, (settings) => {
     if (settings.notificationTimeout > 0) {
-      log(`🕒 Auto-close enabled, closing after ${settings.notificationTimeout} seconds.`);
+      log(`Auto-close set for ${settings.notificationTimeout} seconds`);
       setTimeout(() => {
-        log("🔒 Closing popup automatically.");
         window.close();
       }, settings.notificationTimeout * 1000);
-    } else {
-      log("ℹ️ Auto-close disabled. Manual close required.");
+    }
+    
+    if (settings.language !== currentLanguage) {
+      currentLanguage = settings.language;
+      updateLocalizedTexts();
     }
   });
 
-  // Handle "Close" button
+  // Setup event handlers
+  setupEventHandlers(notification);
+});
+
+function setupEventHandlers(notification) {
+  // Close button
   const closeBtn = document.getElementById("closeWindow");
   if (closeBtn) {
-    closeBtn.addEventListener("click", function () {
-      log("🔒 'Close' button clicked.");
+    closeBtn.addEventListener("click", function() {
+      log("Closing notification window");
       window.close();
     });
-  } else {
-    log("⚠️ 'Close' button not found.");
   }
 
-  // Handle "Mark as Read" button
+  // Mark as Read button
   const markBtn = document.getElementById("markAsRead");
   if (markBtn) {
-    markBtn.addEventListener("click", function (e) {
+    markBtn.addEventListener("click", function(e) {
       e.stopPropagation();
-      log(`✅ 'Mark as Read' clicked for notification ID: ${id}`);
-      chrome.runtime.sendMessage({ action: "markAsRead", id: id }, () => {
+      log(`Marking notification ${notification.id} as read`);
+      chrome.runtime.sendMessage({ 
+        action: "markAsRead", 
+        id: notification.id 
+      }, () => {
         window.close();
       });
     });
-  } else {
-    log("⚠️ 'Mark as Read' button not found.");
   }
 
-  // Handle container click (excluding buttons and links)
+  // Container click handler
   const container = document.querySelector(".notification-container");
-  if (container) {
-    container.addEventListener("click", function (e) {
-      if (!e.target.closest("button") && !e.target.closest("a") && url) {
-        log(`🖱️ Notification clicked, opening URL: ${url}`);
-        window.open(url, "_blank");
-        chrome.runtime.sendMessage({ action: "markAsRead", id: id }, () => {
+  if (container && notification.url) {
+    container.addEventListener("click", function(e) {
+      if (!e.target.closest("button") && !e.target.closest("a")) {
+        log(`Opening URL: ${notification.url}`);
+        window.open(notification.url, "_blank");
+        chrome.runtime.sendMessage({
+          action: "markAsRead",
+          id: notification.id
+        }, () => {
           window.close();
         });
       }
     });
-  } else {
-    log("⚠️ Notification container not found.");
+  }
+}
+
+// Handle language updates from other parts of extension
+chrome.runtime.onMessage.addListener((message) => {
+  if (message.action === "languageChanged") {
+    currentLanguage = message.language;
+    document.documentElement.setAttribute('data-current-language', currentLanguage);
+    updateLocalizedTexts();
+    log(`Language changed to: ${currentLanguage}`);
   }
 });
+
+/*
+*********************************
+* A-Koliada 
+* https://a-koliada.github.io/
+*********************************
+*/

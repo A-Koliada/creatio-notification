@@ -4,7 +4,7 @@
   "version": "1.0.1",
   "description": "Отримуйте сповіщення з Creatio CRM у реальному часі",
   "minimum_chrome_version": "88",
-  
+   
   "icons": {
     "16": "images/icon-16.png",
     "32": "images/icon-32.png",
